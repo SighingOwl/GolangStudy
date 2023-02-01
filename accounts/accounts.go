@@ -1,6 +1,9 @@
 package accounts
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Account struct
 type Account struct {
@@ -39,4 +42,18 @@ func (a *Account) Withdraw(amount int) error { //인출을 할 때 인출요청�
 	a.balance -= amount
 
 	return nil
+}
+
+// ChangeOwner of the account
+func (a *Account) ChangeOwner(newOwner string) {
+	a.owner = newOwner
+}
+
+// Owner of the account
+func (a Account) Owner() string {
+	return a.owner
+}
+
+func (a Account) String() string { //String() method는 struct 자체를 출력할 때 출력되는 것을 설정할 수 있다. Python의 "__str__"과 동일
+	return fmt.Sprint(a.Owner(), "'s account. \nHas: ", a.Balance())
 }
