@@ -1,6 +1,5 @@
 # GolangStudy
 
 ### Packages
-accounts
-mydict
-something
+Those packages should be copied to GOROOT/src
+accounts  mydict  something
