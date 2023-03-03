@@ -113,7 +113,7 @@ func main() {
 		resultTwo := <-c
 		resultThree := <-c
 		fmt.Println("Received this message:", resultOne)
-		fmt.Println("Received this message:", resultTwo)   // blocking operation
+		fmt.Println("Received this message:", resultTwo)   // receiving messages is blocking operation
 		fmt.Println("Received thsi message:", resultThree) // deadlock
 	*/
 	c := make(chan string)
@@ -122,6 +122,7 @@ func main() {
 		go isSexy(person, c)
 	}
 	for i := 0; i < len(people); i++ {
+		fmt.Print("waiting for ", i)
 		fmt.Println(<-c) // 5개의 message receiver를 만든다고 생각하면 된다.
 	}
 
