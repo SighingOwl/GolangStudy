@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"mydict"
+	"time"
 )
 
 func main() {
@@ -65,14 +65,34 @@ func main() {
 	*/
 
 	//Delete word
-	dictionary := mydict.Dictionary{}
-	baseWord := "hello"
-	dictionary.Add(baseWord, "First")
-	dictionary.Search(baseWord)
-	dictionary.Delete(baseWord)
-	word, err := dictionary.Search(baseWord)
-	if err != nil {
-		fmt.Println(err)
+	/*
+		dictionary := mydict.Dictionary{}
+		baseWord := "hello"
+		dictionary.Add(baseWord, "First")
+		dictionary.Search(baseWord)
+		dictionary.Delete(baseWord)
+		word, err := dictionary.Search(baseWord)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(word)
+	*/
+
+	//Goroutine
+	/*
+		go sexyCount("JE") // 병렬프로세싱을 사용하기 위해서는 호출할 함수 앞에 "go"를 사용해야한다.
+		//go sexyCount("Porsche") //Goroutine은 main 함수가 실행되는 동안에만 실행된다. main 함수에서 호출하는 모든 함수에 "go"를 사용하면 모든 Goroutine을 동시에 실행하고 끝이 나버린다. main 함수는 Goroutine이 종료될 때까지 기다리지 않아서 그대로 main 함수가 종료된다.
+		sexyCount("Porsche") // 앞에 "go"가 없는 이 함수가 위의 함수와 동시에 실행될 수 있는 이유는 main함수가 이 함수를 카운팅하고 있기 때문이다.
+	*/
+	go sexyCount("JE")
+	go sexyCount("Porsche")
+	time.Sleep(time.Second * 5) // main 함수가 종료되지 않도록 하는 장치가 있다면 위의 예시처럼 해도 된다.
+
+}
+
+func sexyCount(person string) {
+	for i := 0; i < 10; i++ {
+		fmt.Println(person, "is sexy", i)
+		time.Sleep(time.Second)
 	}
-	fmt.Println(word)
 }
