@@ -25,14 +25,19 @@ type extractedItem struct {
 var baseURL string = "http://browse.auction.co.kr/search?keyword=sony&itemno=&nickname=&frm=hometab&dom=auction&isSuggestion=No&retry=&Fwk=sony&acode=SRP_SU_0100&arraycategory=&encKeyword=sony&k=9"
 
 func main() {
+	var items []extractedItem
 	totalpages := getPages()
 
 	for i := 1; i <= totalpages; i++ {
-		getPage(i)
+		extractedItems := getPage(i)
+		items = append(items, extractedItems...)
 	}
+
+	fmt.Println(items)
 }
 
-func getPage(page int) {
+func getPage(page int) []extractedItem {
+	var items []extractedItem
 	pageURL := baseURL + "&p=" + strconv.Itoa(page)
 	fmt.Println("Requesting", pageURL)
 
@@ -47,24 +52,41 @@ func getPage(page int) {
 
 	searchitem := doc.Find(".section--itemcard")
 	searchitem.Each(func(i int, card *goquery.Selection) { //doc.Find(".pgntn-page-pagination-block").Each(func(i int, s *goquery.Selection) 이런 형식으로 붙여써도 된다.
-		item, _ := card.Find("a").Attr("href")
-		id := strings.Split(item, "http://itempage3.auction.co.kr/DetailView.aspx?itemno=")
-		fmt.Println(id[1:])
-		itemInfo := card.Find("a")
-		itemInfo.Each(func(j int, info *goquery.Selection) {
-			itemBrand := info.Find(".text--brand").Text()
-			itemName := info.Find(".text--title").Text()
-			fmt.Println(itemBrand)
-			fmt.Println(itemName)
-		})
-		itemPrice := card.Find(".text--price_seller").Text()
-		itemScore := card.Find(".awards").Text()
-		fmt.Println(itemPrice)
-		fmt.Println(itemScore)
-		shop, _ := card.Find(".link--shop").Attr("href")
-		itemShop := strings.Split(shop, "http://stores.auction.co.kr/")
-		fmt.Println(itemShop[1:])
+		item := extractItem(card)
+		items = append(items, item)
 	})
+
+	return items
+}
+
+func extractItem(card *goquery.Selection) extractedItem {
+	item, _ := card.Find("a").Attr("href")
+	id := cleanString(strings.Join(strings.Split(item, "http://itempage3.auction.co.kr/DetailView.aspx?itemno="), " "))
+
+	var itemBrand string = " "
+	var itemName string = " "
+	itemInfo := card.Find("a")
+	itemInfo.Each(func(j int, info *goquery.Selection) {
+		itemBrand = cleanString(info.Find(".text--brand").Text())
+		itemName = cleanString(info.Find(".text--title").Text())
+		//fmt.Println(itemBrand)
+		//fmt.Println(itemName)
+	})
+	itemPrice := cleanString(card.Find(".text--price_seller").Text())
+	itemScore := cleanString(card.Find(".awards").Text())
+	shop, _ := card.Find(".link--shop").Attr("href")
+	itemShop := cleanString(strings.Join(strings.Split(shop, "http://stores.auction.co.kr/"), " "))
+
+	return extractedItem{itemNo: id,
+		itemBrand: itemBrand,
+		itemName:  itemName,
+		itemPrice: itemPrice,
+		itemScore: itemScore,
+		itemShop:  itemShop}
+}
+
+func cleanString(str string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
 }
 
 func getPages() int {
