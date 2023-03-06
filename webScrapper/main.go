@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -22,7 +24,7 @@ type extractedItem struct {
 // var baseURL string = "http://pptbizcam.co.kr/?cat=2" // 조땡 템플릿 공유 페이지
 // var baseURL string = "http://www.yes24.com/Product/Search?domain=ALL&query=%ED%81%B4%EB%9D%BC%EC%9A%B0%EB%93%9C" //yes24 클라우드 관련 서적 검색 페이지
 // var baseURL string = "https://product.kyobobook.co.kr/category/KOR/26#?page=1&type=all&per=20&sort=new" //교보문고 기술/공학 관련 페이지
-var baseURL string = "http://browse.auction.co.kr/search?keyword=sony&itemno=&nickname=&frm=hometab&dom=auction&isSuggestion=No&retry=&Fwk=sony&acode=SRP_SU_0100&arraycategory=&encKeyword=sony&k=9"
+var baseURL string = "http://browse.auction.co.kr/search?keyword=sony&itemno=&nickname=&frm=hometab&dom=auction&isSuggestion=No&retry=&Fwk=sony&acode=SRP_SU_0100&arraycategory=&encKeyword=sony&k=9" // Auction sony 검색결과
 
 func main() {
 	var items []extractedItem
@@ -32,8 +34,27 @@ func main() {
 		extractedItems := getPage(i)
 		items = append(items, extractedItems...)
 	}
+	writeItems(items)
+	fmt.Println("Done, extracted", len(items))
+}
 
-	fmt.Println(items)
+func writeItems(items []extractedItem) {
+	file, err := os.Create("items.csv")
+	checkErr(err)
+
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	headers := []string{"Itemno", "Itembrand", "Itemname", "Itemprice", "Itemscore", "Itemshop"}
+
+	wErr := w.Write(headers)
+	checkErr(wErr)
+
+	for _, item := range items {
+		itemSlice := []string{item.itemNo, item.itemBrand, item.itemName, item.itemPrice, item.itemScore, item.itemShop}
+		iwErr := w.Write(itemSlice)
+		checkErr(iwErr)
+	}
 }
 
 func getPage(page int) []extractedItem {
@@ -61,21 +82,13 @@ func getPage(page int) []extractedItem {
 
 func extractItem(card *goquery.Selection) extractedItem {
 	item, _ := card.Find("a").Attr("href")
-	id := cleanString(strings.Join(strings.Split(item, "http://itempage3.auction.co.kr/DetailView.aspx?itemno="), " "))
-
-	var itemBrand string = " "
-	var itemName string = " "
-	itemInfo := card.Find("a")
-	itemInfo.Each(func(j int, info *goquery.Selection) {
-		itemBrand = cleanString(info.Find(".text--brand").Text())
-		itemName = cleanString(info.Find(".text--title").Text())
-		//fmt.Println(itemBrand)
-		//fmt.Println(itemName)
-	})
-	itemPrice := cleanString(card.Find(".text--price_seller").Text())
+	id := cleanString(strings.Join(strings.Split(item, "http://itempage3.auction.co.kr/DetailView.aspx?itemno="), " ")) //href에 포함되어 있는 itemno를 추출
+	itemBrand := cleanString(card.Find(".text--brand").Text())
+	itemName := cleanString(card.Find(".text--title").Text())
+	itemPrice := cleanString(card.Find(".text--price_seller").Text() + "원")
 	itemScore := cleanString(card.Find(".awards").Text())
 	shop, _ := card.Find(".link--shop").Attr("href")
-	itemShop := cleanString(strings.Join(strings.Split(shop, "http://stores.auction.co.kr/"), " "))
+	itemShop := cleanString(strings.Join(strings.Split(shop, "http://stores.auction.co.kr/"), " ")) //href에 포함되어 있는 판매자 정보 추출
 
 	return extractedItem{itemNo: id,
 		itemBrand: itemBrand,
