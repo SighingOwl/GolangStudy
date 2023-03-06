@@ -24,22 +24,29 @@ type extractedItem struct {
 // var baseURL string = "http://pptbizcam.co.kr/?cat=2" // 조땡 템플릿 공유 페이지
 // var baseURL string = "http://www.yes24.com/Product/Search?domain=ALL&query=%ED%81%B4%EB%9D%BC%EC%9A%B0%EB%93%9C" //yes24 클라우드 관련 서적 검색 페이지
 // var baseURL string = "https://product.kyobobook.co.kr/category/KOR/26#?page=1&type=all&per=20&sort=new" //교보문고 기술/공학 관련 페이지
-var baseURL string = "http://browse.auction.co.kr/search?keyword=sony&itemno=&nickname=&frm=hometab&dom=auction&isSuggestion=No&retry=&Fwk=sony&acode=SRP_SU_0100&arraycategory=&encKeyword=sony&k=9" // Auction sony 검색결과
+// var baseURL string = "http://browse.auction.co.kr/search?keyword=sony&itemno=&nickname=&frm=hometab&dom=auction&isSuggestion=No&retry=&Fwk=sony&acode=SRP_SU_0100&arraycategory=&encKeyword=sony&k=9" // Auction sony 검색결과
+var baseURL string = "https://browse.auction.co.kr/search?keyword=LG&itemno=&nickname=&encKeyword=LG&arraycategory=&frm=&dom=auction&isSuggestion=No&retry=&k=29"
 
 func main() {
 	var items []extractedItem
+	c := make(chan []extractedItem)
 	totalpages := getPages()
 
 	for i := 1; i <= totalpages; i++ {
-		extractedItems := getPage(i)
-		items = append(items, extractedItems...)
+		go getPage(i, c)
 	}
+
+	for i := 0; i < totalpages; i++ {
+		extractItems := <-c
+		items = append(items, extractItems...)
+	}
+
 	writeItems(items)
 	fmt.Println("Done, extracted", len(items))
 }
 
 func writeItems(items []extractedItem) {
-	file, err := os.Create("Sonyitems.csv")
+	file, err := os.Create("LGitems.csv")
 	checkErr(err)
 
 	w := csv.NewWriter(file)
@@ -57,8 +64,9 @@ func writeItems(items []extractedItem) {
 	}
 }
 
-func getPage(page int) []extractedItem {
+func getPage(page int, mainC chan<- []extractedItem) {
 	var items []extractedItem
+	c := make(chan extractedItem)
 	pageURL := baseURL + "&p=" + strconv.Itoa(page)
 	fmt.Println("Requesting", pageURL)
 
@@ -73,14 +81,17 @@ func getPage(page int) []extractedItem {
 
 	searchitem := doc.Find(".section--itemcard")
 	searchitem.Each(func(i int, card *goquery.Selection) { //doc.Find(".pgntn-page-pagination-block").Each(func(i int, s *goquery.Selection) 이런 형식으로 붙여써도 된다.
-		item := extractItem(card)
-		items = append(items, item)
+		go extractItem(card, c)
 	})
 
-	return items
+	for i := 0; i < searchitem.Length(); i++ {
+		item := <-c
+		items = append(items, item)
+	}
+	mainC <- items
 }
 
-func extractItem(card *goquery.Selection) extractedItem {
+func extractItem(card *goquery.Selection, c chan<- extractedItem) {
 	item, _ := card.Find("a").Attr("href")
 	id := cleanString(strings.Join(strings.Split(item, "http://itempage3.auction.co.kr/DetailView.aspx?itemno="), " ")) //href에 포함되어 있는 itemno를 추출
 	itemBrand := cleanString(card.Find(".text--brand").Text())
@@ -90,7 +101,7 @@ func extractItem(card *goquery.Selection) extractedItem {
 	shop, _ := card.Find(".link--shop").Attr("href")
 	itemShop := cleanString(strings.Join(strings.Split(shop, "http://stores.auction.co.kr/"), " ")) //href에 포함되어 있는 판매자 정보 추출
 
-	return extractedItem{itemNo: id,
+	c <- extractedItem{itemNo: id,
 		itemBrand: itemBrand,
 		itemName:  itemName,
 		itemPrice: itemPrice,
