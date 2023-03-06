@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"goquery"
 )
@@ -45,7 +46,9 @@ func main() {
 	fmt.Println("Done, extracted", len(items))
 }
 
-func writeItems(items []extractedItem) {
+func writeItems(items []extractedItem) { // 수집된 item 정보를 csv파일에 작성
+	var mu = new(sync.Mutex) // write 작업시 slice 보호를 위해 mutex를 사용
+
 	file, err := os.Create("LGitems.csv")
 	checkErr(err)
 
@@ -59,12 +62,18 @@ func writeItems(items []extractedItem) {
 
 	for _, item := range items {
 		itemSlice := []string{item.itemNo, item.itemBrand, item.itemName, item.itemPrice, item.itemScore, item.itemShop}
-		iwErr := w.Write(itemSlice)
-		checkErr(iwErr)
+		go itemWrite(mu, w, itemSlice)
 	}
 }
 
-func getPage(page int, mainC chan<- []extractedItem) {
+func itemWrite(mu *sync.Mutex, w *csv.Writer, itemSlice []string) {
+	mu.Lock()
+	iwErr := w.Write(itemSlice)
+	checkErr(iwErr)
+	mu.Unlock()
+}
+
+func getPage(page int, mainC chan<- []extractedItem) { //page에서 item을 추출해서 channel을 사용해 main으로 전달
 	var items []extractedItem
 	c := make(chan extractedItem)
 	pageURL := baseURL + "&p=" + strconv.Itoa(page)
@@ -91,7 +100,7 @@ func getPage(page int, mainC chan<- []extractedItem) {
 	mainC <- items
 }
 
-func extractItem(card *goquery.Selection, c chan<- extractedItem) {
+func extractItem(card *goquery.Selection, c chan<- extractedItem) { // getPage에서 추출한 itemcard에서 item의 정보를 추출
 	item, _ := card.Find("a").Attr("href")
 	id := cleanString(strings.Join(strings.Split(item, "http://itempage3.auction.co.kr/DetailView.aspx?itemno="), " ")) //href에 포함되어 있는 itemno를 추출
 	itemBrand := cleanString(card.Find(".text--brand").Text())
@@ -113,7 +122,7 @@ func cleanString(str string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
 }
 
-func getPages() int {
+func getPages() int { // 스크랩핑을 진행할 사이트의 페이지 수를 확인
 	var pages int = 0
 	res, err := http.Get(baseURL)
 	checkErr(err)
@@ -131,7 +140,7 @@ func getPages() int {
 	return pages
 }
 
-func pageParser(pages string) int { // 조뗑 템플릿 공유 사이트 페이지 파서
+func pageParser(pages string) int { // 조뗑 템플릿 공유 사이트 페이지 파인
 	startIndex := 0
 	lastIndex := 0
 
@@ -152,13 +161,13 @@ func pageParser(pages string) int { // 조뗑 템플릿 공유 사이트 페이�
 	return lastPage
 }
 
-func checkErr(err error) {
+func checkErr(err error) { // err 확인
 	if err != nil {
 		log.Fatalln(err)
 	}
 }
 
-func checkCode(res *http.Response) {
+func checkCode(res *http.Response) { // html 응답 코드 확인 및 예외 처리
 	if res.StatusCode != 200 {
 		log.Fatalln("Request failed with Status:", res.StatusCode)
 	}
