@@ -15,4 +15,4 @@ accounts  mydict  something
 > Webscrape the "Auction" item search page without goroutine & channel <br/>
 
 #### webScrapperUsingChannel <br/>
-> Webscrape the "Auction" item search page with goroutine & channel and make it work faster <br/>
+> Webscrape the "Auction" item search page with goroutine & channel and make it faster <br/>
