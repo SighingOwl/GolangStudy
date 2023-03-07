@@ -1,4 +1,4 @@
-package main
+package scrapper
 
 import (
 	"encoding/csv"
@@ -22,19 +22,15 @@ type extractedItem struct {
 	itemShop  string
 }
 
-// var baseURL string = "http://pptbizcam.co.kr/?cat=2" // 조땡 템플릿 공유 페이지
-// var baseURL string = "http://www.yes24.com/Product/Search?domain=ALL&query=%ED%81%B4%EB%9D%BC%EC%9A%B0%EB%93%9C" //yes24 클라우드 관련 서적 검색 페이지
-// var baseURL string = "https://product.kyobobook.co.kr/category/KOR/26#?page=1&type=all&per=20&sort=new" //교보문고 기술/공학 관련 페이지
-// var baseURL string = "http://browse.auction.co.kr/search?keyword=sony&itemno=&nickname=&frm=hometab&dom=auction&isSuggestion=No&retry=&Fwk=sony&acode=SRP_SU_0100&arraycategory=&encKeyword=sony&k=9" // Auction sony 검색결과
-var baseURL string = "https://browse.auction.co.kr/search?keyword=LG&itemno=&nickname=&encKeyword=LG&arraycategory=&frm=&dom=auction&isSuggestion=No&retry=&k=29"
-
-func main() {
+// Scrape Auction by a term
+func Scrape(item string) {
+	var baseURL string = "https://browse.auction.co.kr/search?keyword=" + item + "&itemno=&nickname=&encKeyword=" + item + "&arraycategory=&frm=&dom=auction&isSuggestion=No&retry=&k=32"
 	var items []extractedItem
 	c := make(chan []extractedItem)
-	totalpages := getPages()
+	totalpages := getPages(baseURL)
 
 	for i := 1; i <= totalpages; i++ {
-		go getPage(i, c)
+		go getPage(i, baseURL, c)
 	}
 
 	for i := 0; i < totalpages; i++ {
@@ -49,7 +45,7 @@ func main() {
 func writeItems(items []extractedItem) { // 수집된 item 정보를 csv파일에 작성
 	var mu = new(sync.Mutex) // write 작업시 slice 보호를 위해 mutex를 사용
 
-	file, err := os.Create("LGitems.csv")
+	file, err := os.Create("samsungitems.csv")
 	checkErr(err)
 
 	w := csv.NewWriter(file)
@@ -73,10 +69,10 @@ func itemWrite(mu *sync.Mutex, w *csv.Writer, itemSlice []string) { // csv에 sl
 	mu.Unlock()
 }
 
-func getPage(page int, mainC chan<- []extractedItem) { //page에서 item을 추출해서 channel을 사용해 main으로 전달
+func getPage(page int, url string, mainC chan<- []extractedItem) { //page에서 item을 추출해서 channel을 사용해 main으로 전달
 	var items []extractedItem
 	c := make(chan extractedItem)
-	pageURL := baseURL + "&p=" + strconv.Itoa(page)
+	pageURL := url + "&p=" + strconv.Itoa(page)
 	fmt.Println("Requesting", pageURL)
 
 	res, err := http.Get(pageURL)
@@ -118,13 +114,14 @@ func extractItem(card *goquery.Selection, c chan<- extractedItem) { // getPage�
 		itemShop:  itemShop}
 }
 
-func cleanString(str string) string {
+// CleanString cleans a string
+func CleanString(str string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
 }
 
-func getPages() int { // 스크랩핑을 진행할 사이트의 페이지 수를 확인
+func getPages(url string) int { // 스크랩핑을 진행할 사이트의 페이지 수를 확인
 	var pages int = 0
-	res, err := http.Get(baseURL)
+	res, err := http.Get(url)
 	checkErr(err)
 	checkCode(res)
 
